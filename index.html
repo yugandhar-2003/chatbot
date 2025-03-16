@@ -1,1 +1,147 @@
 
+<html lang="en">
+  <head>
+    <title>Mindful Chat Buddy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.3/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+      .bg-primary { background-color: #CDB4DB; }
+      .bg-secondary { background-color: #FFC8DD; }
+      .bg-tertiary { background-color: #FFAFCC; }
+      .text-primary { color: #CDB4DB; }
+      .text-secondary { color: #FFC8DD; }
+    </style>
+  </head>
+  <body class="bg-tertiary flex flex-col justify-center items-center min-h-screen">
+    <div class="w-full max-w-2xl bg-white shadow-lg rounded-lg overflow-hidden">
+      <header class="bg-primary text-white p-4 text-center font-bold text-2xl">
+        Mindful Chat Buddy 🌟 - Your Companion for Growth and Healing
+      </header>
+      <div id="chatbox" class="flex flex-col items-start p-4 overflow-auto h-96"></div>
+      <div class="flex flex-row m-5">
+        <input class="shadow flex-grow rounded p-2 mr-2 text-primary bg-tertiary" id="messageInput" type="text" placeholder="Type your message...">
+        <button class="bg-secondary hover:bg-opacity-75 rounded py-2 px-4 text-white font-bold transition duration-150 ease-out" id="sendButton">
+          Send 🌿
+        </button>
+        <button class="bg-primary hover:bg-opacity-75 rounded py-2 px-4 text-white font-bold transition duration-150 ease-out" id="voiceButton">
+          🎤
+        </button>
+      </div>
+    </div>
+    <script>
+      const chatbox = document.getElementById("chatbox");
+      const messageInput = document.getElementById("messageInput");
+      const sendButton = document.getElementById("sendButton");
+      const voiceButton = document.getElementById("voiceButton");
+      const chatId = crypto.randomUUID();
+
+      const systemPrompt = "You are an AI chatbot specializing in mental health, meditation, and spirituality. Your responses should be supportive, empathetic, and insightful on these topics only. Remember to redirect users to seek professional help when necessary and always maintain a compassionate and uplifting tone.";
+
+      function createMessageElement(text, alignment) {
+        const messageElement = document.createElement("div");
+        messageElement.className = `inline-block my-2.5 p-2.5 rounded bg-${
+          alignment === "left" ? "primary self-start text-primary" : "secondary self-end text-secondary"
+        }`;
+        messageElement.textContent = text;
+        return messageElement;
+      }
+
+      function determineResponse(message) {
+        const unrelatedTopics = ["politics", "technology", "finance", "medical"];
+        const distressPhrases = ["I'm upset", "I'm distressed", "I'm overwhelmed"];
+
+        for (const topic of unrelatedTopics) {
+          if (message.toLowerCase().includes(topic)) {
+            return "I specialize in mental health, meditation, and spirituality. Let me know if I can support you in these areas.";
+          }
+        }
+        for (const phrase of distressPhrases) {
+          if (message.toLowerCase().includes(phrase)) {
+            return "I'm here to support you. If you're feeling overwhelmed, please reach out to a trusted professional or helpline. You are not alone.";
+          }
+        }
+        return null;
+      }
+
+      function connectWebSocket(message) {
+        const predefinedResponse = determineResponse(message);
+
+        if (predefinedResponse) {
+          chatbox.appendChild(createMessageElement(predefinedResponse, "left"));
+          chatbox.scrollTop = chatbox.scrollHeight;
+          return;
+        }
+
+        const url = "wss://backend.buildpicoapps.com/api/chatbot/chat";
+        const websocket = new WebSocket(url);
+        const messageElement = createMessageElement("", "left");
+        chatbox.appendChild(messageElement);
+
+        websocket.addEventListener("open", () => {
+          websocket.send(
+            JSON.stringify({
+              chatId: chatId,
+              appId: "quality-among",
+              systemPrompt: systemPrompt,
+              message: message,
+            })
+          );
+        });
+
+        websocket.onmessage = (event) => {
+          messageElement.innerText += event.data;
+          chatbox.scrollTop = chatbox.scrollHeight;
+        };
+
+        websocket.onclose = (event) => {
+          if (event.code !== 1000) {
+            messageElement.textContent += " Error getting response from server. Refresh the page and try again.";
+            chatbox.scrollTop = chatbox.scrollHeight;
+          }
+        };
+      }
+
+      sendButton.addEventListener("click", () => {
+        if (messageInput.value.trim() !== "") {
+          const messageText = messageInput.value.trim();
+          messageInput.value = "";
+          const messageElement = createMessageElement(messageText, "right");
+          chatbox.appendChild(messageElement);
+          chatbox.scrollTop = chatbox.scrollHeight;
+
+          connectWebSocket(messageText);
+        }
+      });
+
+      messageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && messageInput.value.trim() !== "") {
+          event.preventDefault();
+          sendButton.click();
+        }
+      });
+
+      if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = false;
+
+        recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          messageInput.value = transcript;
+        };
+
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error detected: ' + event.error);
+        };
+
+        voiceButton.addEventListener("click", () => {
+          recognition.start();
+        });
+      } else {
+        voiceButton.disabled = true;
+        voiceButton.title = "Voice recognition not supported in this browser.";
+      }
+    </script>
+  </body>
+</html>
